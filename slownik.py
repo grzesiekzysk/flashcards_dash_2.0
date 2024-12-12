@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 from bs4 import BeautifulSoup
 import re
+import eng_to_ipa
 
 def fix_string(text):
     pattern = r"(\S)\("
@@ -13,6 +14,7 @@ class Diki:
         self.data = pd.DataFrame(
             columns=[
                 'english_word',
+                'pronunciation',
                 'popularity',
                 'part_of_speech',
                 'polish_word',
@@ -97,6 +99,7 @@ class Diki:
 
                     data_list.append({
                         'english_word': ' - '.join([word] + other_forms) + ('' if synonyms == None else f' [{synonyms}]'),
+                        'pronunciation': ' - '.join([eng_to_ipa.convert(i) for i in [word] + other_forms]) + ('' if synonyms == None else f' [{eng_to_ipa.convert(synonyms)}]'),
                         'popularity': popularity,
                         'part_of_speech': part_of_speech,
                         'polish_word': fix_string(polish_word),
