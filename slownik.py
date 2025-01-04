@@ -11,11 +11,17 @@ def fix_string(text):
 class Diki:
     def __init__(self, lang='ENG'):
         self.lang = lang
+        self.dict_pop = {
+            '*****': 'TOP 1000',
+            '****': 'TOP 2000',
+            '***': 'TOP 3000',
+            '**': 'TOP 4000',
+            '*': 'TOP 5000',
+        }
         self.data = pd.DataFrame(
             columns=[
                 'english_word',
                 'pronunciation',
-                'popularity',
                 'part_of_speech',
                 'polish_word',
                 'eng_example',
@@ -23,16 +29,17 @@ class Diki:
                 'synonyms',
                 'opposites'
             ]
-        )
+        ),
+        self.popularity = None
         self.soup = None
 
     def _bs4_info(self, word):
         langs = {
-            "ENG": "angielskiego",
-            "GER": "niemieckiego",
-            "ESP": 'hiszpanskiego',
-            "ITA": 'wloskiego',
-            "FRA": 'francuskiego'
+            'ENG': 'angielskiego',
+            'GER': 'niemieckiego',
+            'ESP': 'hiszpanskiego',
+            'ITA': 'wloskiego',
+            'FRA': 'francuskiego'
         }
         
         result = requests.get(f'https://www.diki.pl/slownik-{langs[self.lang]}?q={word}')
@@ -45,18 +52,30 @@ class Diki:
 
         try:
             popularity_element = self.soup.find('a', class_='starsForNumOccurrences')
-            popularity = popularity_element.text.strip() if popularity_element else None
+            self.popularity = self.dict_pop[popularity_element.text.strip()] if popularity_element else None
         except AttributeError:
-            popularity = None
+            self.popularity = None
 
         div_class = self.soup.find_all('div', class_='dictionaryEntity')
 
         for div in div_class:
-            span_hw = div.find("span", class_="hw")
-            if span_hw and span_hw.text.strip() == word:
+            # span_hw = div.find("span", class_="hw")
+            # TODO Pomysleć na casem draw/ draw out
+
+            try:
+                span_hws = div.find("div", class_="hws").find_all("span", class_="hw")
+                english_words = [span.text.strip().lower() for span in span_hws]
+            except:
+                span_hws = div.find("span", class_="hw")
+                english_words = [span_hws.text.strip().lower()]
+
+            if span_hws and word.lower() in english_words:
+
+
                 for m in div.find_all('li', id=re.compile('^meaning\d+')):
 
-                    polish_words = [span.get_text(strip=True) for span in m.find_all('span', class_='hw')]
+                    # polish_words = [span.get_text(strip=True) for span in m.find_all('span', class_='hw')]
+                    polish_words = [span.get_text() for span in m.find_all('span', class_='hw')]
                     polish_word = ', '.join(polish_words)
 
                     ol_parent = m.find_parent('ol')
@@ -90,17 +109,17 @@ class Diki:
                             text_content = child_div.get_text(strip=True)
                             if text_content.startswith('synon'):
                                 links = child_div.find_all('a')
-                                synonyms.update([link.get_text(strip=True) for link in links])
+                                synonyms.update([link.get_text() for link in links])
                             elif text_content.startswith('przeciw'):
                                 links = child_div.find_all('a')
-                                opposites.update([link.get_text(strip=True) for link in links])
+                                opposites.update([link.get_text() for link in links])
                     
                     synonyms = None if len(list(synonyms)) == 0 else ', '.join(list(synonyms))
 
                     data_list.append({
-                        'english_word': ' - '.join([word] + other_forms) + ('' if synonyms == None else f' [{synonyms}]'),
+                        'english_word': ' - '.join([', '.join(english_words)] + other_forms) + ('' if synonyms == None else f' [{synonyms}]'),
+                        # Dodać liste do engipa
                         'pronunciation': ' - '.join([eng_to_ipa.convert(i) for i in [word] + other_forms]) + ('' if synonyms == None else f' [{eng_to_ipa.convert(synonyms)}]'),
-                        'popularity': popularity,
                         'part_of_speech': part_of_speech,
                         'polish_word': fix_string(polish_word),
                         'eng_example': eng_example,

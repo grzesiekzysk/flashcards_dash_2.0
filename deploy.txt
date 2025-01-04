@@ -1,0 +1,1 @@
+gcloud run deploy english-flashcards --source . --region europe-central2 --platform managed --allow-unauthenticated
