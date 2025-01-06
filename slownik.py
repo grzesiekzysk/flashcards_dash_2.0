@@ -8,6 +8,15 @@ def fix_string(text):
     pattern = r"(\S)\("
     return re.sub(pattern, r"\1 (", text)
 
+def pronunciation(english_words, other_forms, synonyms):
+
+    english_words = ', '.join([eng_to_ipa.convert(word) for word in english_words])
+    other_forms_list = [eng_to_ipa.convert(word) for word in other_forms]
+    english_words = ' - '.join([english_words] + other_forms_list)
+    synonyms = ('' if synonyms == None else f' [{eng_to_ipa.convert(synonyms)}]')
+
+    return english_words + synonyms
+
 class Diki:
     def __init__(self, lang='ENG'):
         self.lang = lang
@@ -49,6 +58,7 @@ class Diki:
     def extract_data(self, word):
         self._bs4_info(word)
         data_list = []
+        self.other_words = []
 
         try:
             popularity_element = self.soup.find('a', class_='starsForNumOccurrences')
@@ -56,12 +66,9 @@ class Diki:
         except AttributeError:
             self.popularity = None
 
-        div_class = self.soup.find_all('div', class_='dictionaryEntity')
+        div_class = self.soup.find("div", class_="diki-results-left-column").find_all('div', class_='dictionaryEntity')
 
         for div in div_class:
-            # span_hw = div.find("span", class_="hw")
-            # TODO Pomysleć na casem draw/ draw out
-
             try:
                 span_hws = div.find("div", class_="hws").find_all("span", class_="hw")
                 english_words = [span.text.strip().lower() for span in span_hws]
@@ -71,10 +78,7 @@ class Diki:
 
             if span_hws and word.lower() in english_words:
 
-
                 for m in div.find_all('li', id=re.compile('^meaning\d+')):
-
-                    # polish_words = [span.get_text(strip=True) for span in m.find_all('span', class_='hw')]
                     polish_words = [span.get_text() for span in m.find_all('span', class_='hw')]
                     polish_word = ', '.join(polish_words)
 
@@ -118,12 +122,19 @@ class Diki:
 
                     data_list.append({
                         'english_word': ' - '.join([', '.join(english_words)] + other_forms) + ('' if synonyms == None else f' [{synonyms}]'),
-                        # Dodać liste do engipa
-                        'pronunciation': ' - '.join([eng_to_ipa.convert(i) for i in [word] + other_forms]) + ('' if synonyms == None else f' [{eng_to_ipa.convert(synonyms)}]'),
+                        'pronunciation': pronunciation(english_words, other_forms, synonyms),
                         'part_of_speech': part_of_speech,
                         'polish_word': fix_string(polish_word),
                         'eng_example': eng_example,
                         'pol_example': pol_example
                     })
 
+            div_class_right = self.soup.find("div", class_="diki-results-right-column").find_all('div', class_='dictionaryEntity')
+
+            for div in div_class_right:
+                self.other_words.append(div.find("span", {"class": "hw"}).text.strip())
+
         self.data = pd.DataFrame(data_list)
+
+        if self.data.shape[0] == 0:
+            self.popularity = None
