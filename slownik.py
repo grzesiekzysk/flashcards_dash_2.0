@@ -66,73 +66,79 @@ class Diki:
         except AttributeError:
             self.popularity = None
 
-        div_class = self.soup.find("div", class_="diki-results-left-column").find_all('div', class_='dictionaryEntity')
+        try:
+            div_class = self.soup.find("div", class_="diki-results-left-column").find_all('div', class_='dictionaryEntity')
 
-        for div in div_class:
-            try:
-                span_hws = div.find("div", class_="hws").find_all("span", class_="hw")
-                english_words = [span.text.strip().lower() for span in span_hws]
-            except:
-                span_hws = div.find("span", class_="hw")
-                english_words = [span_hws.text.strip().lower()]
+            for div in div_class:
+                try:
+                    span_hws = div.find("div", class_="hws").find_all("span", class_="hw")
+                    english_words = [span.text.strip().lower() for span in span_hws]
+                except:
+                    span_hws = div.find("span", class_="hw")
+                    english_words = [span_hws.text.strip().lower()]
 
-            if span_hws and word.lower() in english_words:
+                if span_hws and word.lower() in english_words:
 
-                for m in div.find_all('li', id=re.compile('^meaning\d+')):
-                    polish_words = [span.get_text() for span in m.find_all('span', class_='hw')]
-                    polish_word = ', '.join(polish_words)
+                    for m in div.find_all('li', id=re.compile('^meaning\d+')):
+                        polish_words = [span.get_text() for span in m.find_all('span', class_='hw')]
+                        polish_word = ', '.join(polish_words)
 
-                    ol_parent = m.find_parent('ol')
-                    if ol_parent:
-                        part_of_speech_element = ol_parent.find_previous_sibling('div', class_='partOfSpeechSectionHeader')
-                        part_of_speech = part_of_speech_element.get_text(strip=True) if part_of_speech_element else None
-                        
-                        if part_of_speech_element:
-                            next_div = part_of_speech_element.find_next_sibling('div')
-                            if next_div and ('af' in next_div.get('class', []) or 'vf' in next_div.get('class', [])):
-                                other_forms = [span.get_text(strip=True) for span in next_div.find_all('span', class_='foreignTermText')]
-                            else:
+                        ol_parent = m.find_parent('ol')
+                        if ol_parent:
+                            part_of_speech_element = ol_parent.find_previous_sibling('div', class_='partOfSpeechSectionHeader')
+                            part_of_speech = part_of_speech_element.get_text(strip=True) if part_of_speech_element else None
+                            
+                            if part_of_speech_element:
+                                next_div = part_of_speech_element.find_next_sibling('div')
+                                if next_div and ('af' in next_div.get('class', []) or 'vf' in next_div.get('class', [])):
+                                    other_forms = [span.get_text(strip=True) for span in next_div.find_all('span', class_='foreignTermText')]
+                                else:
+                                    other_forms = []
+                            else: 
                                 other_forms = []
 
-                    else:
-                        part_of_speech = None
+                        else:
+                            part_of_speech = None
 
-                    example_div = m.find('div', class_='exampleSentence')
-                    if example_div:
-                        example_text = ' '.join(example_div.stripped_strings)
-                        eng_example, pol_example = [w.rstrip(')') for w in example_text.split(' (')]
-                    else:
-                        eng_example, pol_example = None, None
+                        example_div = m.find('div', class_='exampleSentence')
+                        if example_div:
+                            example_text = ' '.join(example_div.stripped_strings)
+                            eng_example, pol_example = [w.rstrip(')') for w in example_text.split(' (')]
+                        else:
+                            eng_example, pol_example = None, None
 
-                    synonyms = set()
-                    opposites = set()
+                        synonyms = set()
+                        opposites = set()
 
-                    refs = m.find_all('div', class_='ref')
-                    for ref in refs:
-                        for child_div in ref.find_all('div', recursive=False):
-                            text_content = child_div.get_text(strip=True)
-                            if text_content.startswith('synon'):
-                                links = child_div.find_all('a')
-                                synonyms.update([link.get_text() for link in links])
-                            elif text_content.startswith('przeciw'):
-                                links = child_div.find_all('a')
-                                opposites.update([link.get_text() for link in links])
-                    
-                    synonyms = None if len(list(synonyms)) == 0 else ', '.join(list(synonyms))
+                        refs = m.find_all('div', class_='ref')
+                        for ref in refs:
+                            for child_div in ref.find_all('div', recursive=False):
+                                text_content = child_div.get_text(strip=True)
+                                if text_content.startswith('synon'):
+                                    links = child_div.find_all('a')
+                                    synonyms.update([link.get_text() for link in links])
+                                elif text_content.startswith('przeciw'):
+                                    links = child_div.find_all('a')
+                                    opposites.update([link.get_text() for link in links])
+                        
+                        synonyms = None if len(list(synonyms)) == 0 else ', '.join(list(synonyms))
 
-                    data_list.append({
-                        'english_word': ' - '.join([', '.join(english_words)] + other_forms) + ('' if synonyms == None else f' [{synonyms}]'),
-                        'pronunciation': pronunciation(english_words, other_forms, synonyms),
-                        'part_of_speech': part_of_speech,
-                        'polish_word': fix_string(polish_word),
-                        'eng_example': eng_example,
-                        'pol_example': pol_example
-                    })
+                        data_list.append({
+                            'english_word': ' - '.join([', '.join(english_words)] + other_forms) + ('' if synonyms == None else f' [{synonyms}]'),
+                            'pronunciation': pronunciation(english_words, other_forms, synonyms),
+                            'part_of_speech': part_of_speech,
+                            'polish_word': fix_string(polish_word),
+                            'eng_example': eng_example,
+                            'pol_example': pol_example
+                        })
 
-            div_class_right = self.soup.find("div", class_="diki-results-right-column").find_all('div', class_='dictionaryEntity')
+                div_class_right = self.soup.find("div", class_="diki-results-right-column").find_all('div', class_='dictionaryEntity')
 
-            for div in div_class_right:
-                self.other_words.append(div.find("span", {"class": "hw"}).text.strip())
+                for div in div_class_right:
+                    self.other_words.append(div.find("span", {"class": "hw"}).text.strip())
+
+        except:
+            pass
 
         self.data = pd.DataFrame(data_list)
 

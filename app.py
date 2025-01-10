@@ -203,10 +203,11 @@ app.layout = dbc.Container(
                 )
             ],
             id='search-section',
-            className='mb-5'
+            className='mb-5',
         ),
 
-        html.Div(id='output-1-div', className='mt-3 text-white')
+        html.Div(id='output-1-div', className='mt-3 text-white'),
+        html.Div(id='output-2-div', className='mt-3 text-white')
 
     ],
     className='text-white',
