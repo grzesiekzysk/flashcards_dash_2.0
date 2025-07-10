@@ -1,18 +1,14 @@
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, html, dcc
+from dash import Input, Output, State, html, dcc, MATCH, ALL
 from slownik import Diki
-# from connections import mysql
 import pandas as pd
 import pymysql
 from io import StringIO
+import json
 
 def mysql():
     return pymysql.connect(
-        host='34.118.51.170',
-        user='app',
-        password='Aldehyd09)(',
-        database='flashcards'
     )
 
 def check_rows(user):
@@ -202,15 +198,15 @@ app.layout = dbc.Container(
                     }
                 )
             ],
-            id='search-section',
-            className='mb-5',
+            id='search-section'
+            #className='mt-5'
         ),
 
-        html.Div(id='output-1-div', className='mt-3 text-white'),
-        html.Div(id='output-2-div', className='mt-3 text-white')
+        html.Div(id='output-2-div', className='mt-3 text-white'),
+        html.Div(id='output-1-div', className='mt-3 text-white')
 
     ],
-    className='text-white',
+    className='text-white'
 )
 
 @app.callback(
@@ -218,7 +214,8 @@ app.layout = dbc.Container(
         Output('translation','data', allow_duplicate=True),
         Output('checklist-polish-words', 'options', allow_duplicate=True),
         Output('checklist-polish-words', 'value', allow_duplicate=True),
-        Output('popularity','children')
+        Output('popularity','children'),
+        Output('output-2-div','children')
     ],
     Input('input-word', 'value'),
     prevent_initial_call=True
@@ -235,6 +232,7 @@ def search_word(input_value):
     }
 
     diki.extract_data(input_value)
+
     return [
         diki.data.to_dict('records'),
         [
@@ -265,7 +263,16 @@ def search_word(input_value):
             } 
         for i, row in diki.data.iterrows()],
         [],
-        diki.popularity
+        diki.popularity,
+        [dbc.Badge(
+            word, 
+            id={'type': 'otherword-badge', 'index': i},  # <--- DYNAMICZNY ID
+            color='light', 
+            className="me-1 text-decoration-none",
+            text_color='dark',
+            style={'cursor': 'pointer'}  # aby zmienić kursor na “rączkę” przy najechaniu
+        )
+        for i, word in enumerate(diki.other_words)]
     ]
 
 @app.callback(
@@ -297,7 +304,7 @@ def handle_login_logout(login_clicks, logout_clicks, username, pin, login_status
                 {'logged_in': True, 'user': username},
                 {'display': 'none'},
                 {'display': 'block'},
-                f'Zalogowano jako: {username}',
+                f'Zalogowano: {username}',
                 False,
                 check_rows(username)
             )
@@ -531,6 +538,23 @@ def download_and_update_rows(n_clicks, login_status):
 
     finally:
         con.close()
+
+@app.callback(
+    Output('input-word', 'value', allow_duplicate=True),  
+    Input({'type': 'otherword-badge', 'index': ALL}, 'n_clicks'),  
+    State({'type': 'otherword-badge', 'index': ALL}, 'children'),  
+    prevent_initial_call=True
+)
+def fill_input_from_badge(n_clicks_list, children_list):
+
+    if not any(n_clicks_list):
+        raise dash.exceptions.PreventUpdate
+
+    triggered_id_str = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    triggered_id = json.loads(triggered_id_str) 
+    index_clicked = triggered_id['index']
+
+    return children_list[index_clicked]
 
 if __name__ == '__main__':
     # app.run_server(debug=True)

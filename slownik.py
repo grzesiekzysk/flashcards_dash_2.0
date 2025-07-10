@@ -58,7 +58,7 @@ class Diki:
     def extract_data(self, word):
         self._bs4_info(word)
         data_list = []
-        self.other_words = []
+        self.other_words = set()
 
         try:
             popularity_element = self.soup.find('a', class_='starsForNumOccurrences')
@@ -135,7 +135,7 @@ class Diki:
                 div_class_right = self.soup.find("div", class_="diki-results-right-column").find_all('div', class_='dictionaryEntity')
 
                 for div in div_class_right:
-                    self.other_words.append(div.find("span", {"class": "hw"}).text.strip())
+                    self.other_words.add(div.find("span", {"class": "hw"}).text.strip())
 
         except:
             pass
