@@ -6,4 +6,3 @@ dash==2.18.2
 dash_bootstrap_components==1.6.0
 eng-to-ipa==0.0.2
 epitran==1.25.1
-pymysql==1.1.1
