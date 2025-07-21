@@ -1,10 +1,3 @@
-"""
-Dash app "Angielskie fiszki" – uproszczona wersja (v2.1, kompletna)
-===================================================================
-• Brak logowania / bazy – tylko pamięć przeglądarki + eksport .txt.
-• Fiszki wybierasz, dodajesz do listy, a potem jednym kliknięciem pobierasz.
-"""
-
 import dash
 import dash_bootstrap_components as dbc
 from dash import html, dcc, Input, Output, State, ALL
@@ -20,15 +13,11 @@ app = dash.Dash(
     external_stylesheets=[dbc.themes.DARKLY],
 )
 
-# -------------------- Layout -------------------------------------------------
 app.layout = dbc.Container(
     [
-        # wewnętrzne „magazyny”
         dcc.Store(id="translation"),
         dcc.Store(id="saved-flashcards", data=[]),
         dcc.Download(id="download-file"),
-
-        # sekcja wyszukiwania
         html.Div(
             [
                 dbc.InputGroup(
@@ -37,7 +26,7 @@ app.layout = dbc.Container(
                         dbc.Input(id="input-word", placeholder="English word", className="bg-dark text-white"),
                         dbc.InputGroupText(id="popularity", className="text-white bg-dark"),
                     ],
-                    className="mb-3",
+                    className="mb-3 pt-3",
                 ),
                 dbc.ButtonGroup(
                     [
@@ -56,13 +45,11 @@ app.layout = dbc.Container(
             ],
         ),
 
-        # podglądy
-        html.Div(id="output-2-div", className="mt-3 text-white"),  # inne tłumaczenia
-        html.Div(id="output-1-div", className="mt-3 text-white"),  # wybrane fiszki
+        html.Div(id="output-2-div", className="mt-3 text-white"),
+        html.Div(id="output-1-div", className="mt-3 text-white"),
 
         html.Hr(),
 
-        # pobieranie
         dbc.Button(
             [
                 "Pobierz wszystkie ",
@@ -78,9 +65,6 @@ app.layout = dbc.Container(
     className="text-white",
 )
 
-# -------------------- Callbacks ---------------------------------------------
-
-# 1️⃣ pobieranie danych z Diki --------------------------------------------------
 @app.callback(
     [
         Output("translation", "data", allow_duplicate=True),
@@ -118,8 +102,6 @@ def search_word(word):
 
     return diki.data.to_dict("records"), options, [], diki.popularity, badges
 
-
-# 2️⃣ podgląd zaznaczonych fiszek ----------------------------------------------
 @app.callback(
     Output("output-1-div", "children"),
     Input("checklist-polish-words", "value"),
@@ -155,8 +137,6 @@ def preview(selected, translation):
         )
     return rows
 
-
-# 3️⃣ zaznacz / odznacz wszystko ------------------------------------------------
 @app.callback(
     Output("checklist-polish-words", "value", allow_duplicate=True),
     Input("select-all-button", "n_clicks"),
@@ -179,8 +159,6 @@ def deselect_all(n):
         raise dash.exceptions.PreventUpdate
     return []
 
-
-# 4️⃣ włączanie „Dodaj fiszki” ----------------------------------------------------
 @app.callback(
     Output("send-button", "disabled"),
     Input("checklist-polish-words", "value"),
@@ -188,12 +166,18 @@ def deselect_all(n):
 def toggle_send(v):
     return not bool(v)
 
-
-# 5️⃣ dodawanie fiszek do pamięci -------------------------------------------------
 @app.callback(
-    [Output("input-word", "value"), Output("saved-flashcards", "data", allow_duplicate=True), Output("n-rows", "children", allow_duplicate=True)],
+    [
+        Output("input-word", "value", allow_duplicate=True),
+        Output("saved-flashcards", "data", allow_duplicate=True),
+        Output("n-rows", "children", allow_duplicate=True),
+        Output("checklist-polish-words", "options", allow_duplicate=True),
+        Output("checklist-polish-words", "value", allow_duplicate=True)
+    ],
     Input("send-button", "n_clicks"),
-    [State("translation", "data"), State("checklist-polish-words", "value"), State("saved-flashcards", "data")],
+    State("translation", "data"),
+    State("checklist-polish-words", "value"),
+    State("saved-flashcards", "data"),
     prevent_initial_call=True,
 )
 def add(n, translation, ids, store):
@@ -206,15 +190,13 @@ def add(n, translation, ids, store):
         raise dash.exceptions.PreventUpdate
 
     chos = chos.assign(
-        front=lambda d: d.polish_word + d.pol_example.fillna("").apply(lambda x: f"<br><br><small>{x}</small>" if x else ""),
-        back=lambda d: d.english_word + "<br>" + d.pronunciation + d.eng_example.fillna("").apply(lambda x: f"<br><br><small>{x}</small>" if x else ""),
+        front=lambda d: d.polish_word + d.pol_example.fillna("").apply(lambda x: f"<br><br>{x}" if x else ""),
+        back=lambda d: d.english_word + "<br>" + d.pronunciation + d.eng_example.fillna("").apply(lambda x: f"<br><br>{x}" if x else ""),
     )
     new = chos[["front", "back"]].to_dict("records")
     store = store + new
-    return "", store, len(store)
+    return "", store, len(store), [], []
 
-
-# 6️⃣ aktywacja przycisku pobierania ---------------------------------------------
 @app.callback(
     Output("download", "disabled"),
     Input("n-rows", "children"),
@@ -225,8 +207,6 @@ def toggle_download(n):
     except (TypeError, ValueError):
         return True
 
-
-# 7️⃣ pobieranie i czyszczenie ----------------------------------------------------
 @app.callback(
     [Output("download-file", "data"), Output("saved-flashcards", "data", allow_duplicate=True), Output("n-rows", "children", allow_duplicate=True)],
     Input("download", "n_clicks"),
@@ -240,8 +220,6 @@ def download(n, data):
     payload = dcc.send_data_frame(df.to_csv, "flashcards.txt", index=False, header=False, sep=";")
     return payload, [], 0
 
-
-# 8️⃣ klik w badge alternative word ---------------------------------------------
 @app.callback(
     Output("input-word", "value", allow_duplicate=True),
     Input({"type": "otherword-badge", "index": ALL}, "n_clicks"),
@@ -257,4 +235,5 @@ def badge_fill(clicks, labels):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    # app.run_server(debug=True)
+    app.run_server(host="0.0.0.0", port=8080)
